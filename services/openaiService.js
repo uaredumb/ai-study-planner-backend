@@ -14,14 +14,14 @@ const SYSTEM_PROMPT = [
 ].join("\n");
 
 async function cleanStudentNotes(rawNotes, env = {}) {
-  const apiKey = env.AI_STUDY_BUDDY_API_KEY || process.env.AI_STUDY_BUDDY_API_KEY;
+  const apiKey = env.AI_STUDY_BUDDY_API_KEY;
   
   if (!apiKey) {
-    throw new Error("Set AI_STUDY_BUDDY_API_KEY in environment variables or secrets.");
+    throw new Error("AI_STUDY_BUDDY_API_KEY secret is not set in Cloudflare Workers. Please configure it in wrangler secrets.");
   }
 
-  const siteUrl = env.OPENROUTER_SITE_URL || process.env.OPENROUTER_SITE_URL || "http://localhost:3000";
-  const appName = env.OPENROUTER_APP_NAME || process.env.OPENROUTER_APP_NAME || "AI Study Planner";
+  const siteUrl = env.OPENROUTER_SITE_URL || "http://localhost:3000";
+  const appName = env.OPENROUTER_APP_NAME || "AI Study Planner";
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
