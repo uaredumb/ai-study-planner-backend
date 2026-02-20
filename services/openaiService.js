@@ -1,18 +1,3 @@
-const OpenAI = require("openai");
-
-const usingOpenRouter = Boolean(process.env.OPENROUTER_API_KEY);
-
-const client = new OpenAI({
-  apiKey: usingOpenRouter ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY,
-  baseURL: usingOpenRouter ? "https://openrouter.ai/api/v1" : undefined,
-  defaultHeaders: usingOpenRouter
-    ? {
-        "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost:3000",
-        "X-Title": process.env.OPENROUTER_APP_NAME || "AI Study Planner"
-      }
-    : undefined
-});
-
 const SYSTEM_PROMPT = [
   "You are an assistant that turns messy student notes into a clear study plan.",
   "Return only valid JSON using this shape:",
@@ -28,27 +13,46 @@ const SYSTEM_PROMPT = [
   "- studyOrder should be a practical sequence to follow."
 ].join("\n");
 
-async function cleanStudentNotes(rawNotes) {
-  if (!process.env.OPENROUTER_API_KEY && !process.env.OPENAI_API_KEY) {
-    throw new Error("Set OPENROUTER_API_KEY (or OPENAI_API_KEY) in environment variables.");
+async function cleanStudentNotes(rawNotes, env = {}) {
+  const apiKey = env.AI_STUDY_BUDDY_API_KEY || process.env.AI_STUDY_BUDDY_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("Set AI_STUDY_BUDDY_API_KEY in environment variables or secrets.");
   }
 
-  const response = await client.responses.create({
-    model: process.env.AI_MODEL || (usingOpenRouter ? "arcee-ai/trinity-large-preview:free" : "gpt-4.1-mini"),
-    temperature: 0.2,
-    input: [
-      {
-        role: "system",
-        content: SYSTEM_PROMPT
-      },
-      {
-        role: "user",
-        content: `Messy notes:\n${rawNotes}`
-      }
-    ]
+  const siteUrl = env.OPENROUTER_SITE_URL || process.env.OPENROUTER_SITE_URL || "http://localhost:3000";
+  const appName = env.OPENROUTER_APP_NAME || process.env.OPENROUTER_APP_NAME || "AI Study Planner";
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "HTTP-Referer": siteUrl,
+      "X-Title": appName,
+    },
+    body: JSON.stringify({
+      model: "arcee-ai/trinity-large-preview:free",
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: SYSTEM_PROMPT
+        },
+        {
+          role: "user",
+          content: `Messy notes:\n${rawNotes}`
+        }
+      ]
+    })
   });
 
-  const textOutput = response.output_text || "";
+  if (!response.ok) {
+    throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const textOutput = data.choices?.[0]?.message?.content || "";
   const parsed = parseModelJson(textOutput);
 
   return {
@@ -66,10 +70,6 @@ function ensureStringArray(value) {
   return value.filter((item) => typeof item === "string" && item.trim().length > 0);
 }
 
-module.exports = {
-  cleanStudentNotes
-};
-
 function parseModelJson(text) {
   try {
     return JSON.parse(text);
@@ -85,3 +85,5 @@ function parseModelJson(text) {
     return JSON.parse(jsonSlice);
   }
 }
+
+export { cleanStudentNotes };

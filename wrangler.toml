@@ -1,0 +1,9 @@
+name = "ai-study-planner-backend"
+main = "index.js"
+compatibility_date = "2026-02-20"
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+# Add your secrets in Cloudflare dashboard:
+# AI_STUDY_BUDDY_API_KEY, OPENROUTER_SITE_URL, OPENROUTER_APP_NAME
